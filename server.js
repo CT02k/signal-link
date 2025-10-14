@@ -18,11 +18,16 @@ app.prepare().then(() => {
     },
   });
 
+  function totalCount(room) {
+    return io.of("/").adapter.rooms.get(room)?.size || 0
+  }
+
   io.on("connection", (socket) => {
     console.log("New Socket.IO connection:", socket.id);
 
     const room = socket.handshake.query.room;
     if (room) socket.join(room);
+    io.to(room).emit("roomCount", totalCount(room));
 
     socket.on("message", (msg) => {
       io.to(room).emit("message", msg);
@@ -30,6 +35,7 @@ app.prepare().then(() => {
 
     socket.on("disconnect", () => {
       console.log("User disconnected:", socket.id);
+      io.to(room).emit("roomCount", totalCount(room));
     });
   });
 

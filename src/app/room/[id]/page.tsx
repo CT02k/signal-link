@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import io, { Socket } from "socket.io-client";
-import { Check, Copy } from "lucide-react";
+import { ArrowLeft, Check, Copy } from "lucide-react";
 import { Effect, SoundEffect } from "./types/effect";
 
 let socket: Socket;
@@ -11,6 +11,8 @@ let socket: Socket;
 export default function RoomPage() {
   const params = useParams();
   const { id: roomId } = params;
+
+  const [roomCount, setRoomCount] = useState(0);
 
   const [effect, setEffect] = useState<Effect>(Effect.NONE);
   const [soundEffect, setSoundEffect] = useState<SoundEffect>(SoundEffect.NONE);
@@ -20,6 +22,8 @@ export default function RoomPage() {
   const [copied, setCopied] = useState(false);
 
   const pathname = usePathname();
+
+  const router = useRouter();
 
   useEffect(() => {
     setIsTabActive(true);
@@ -59,8 +63,8 @@ export default function RoomPage() {
       console.log("Connected to room:", roomId, "Socket ID:", socket.id);
     });
 
-    socket.on("message", (msg: Effect | SoundEffect) => {
-      console.log("Message received:", msg);
+    const effectsEvent = (message: string) => {
+      const msg = message as Effect | SoundEffect;
 
       if (Object.values(Effect).includes(msg as Effect)) {
         setEffect(msg as Effect);
@@ -73,6 +77,16 @@ export default function RoomPage() {
       }
 
       playNotification();
+    };
+
+    socket.on("roomCount", (count: number) => {
+      setRoomCount(count);
+    });
+
+    socket.on("message", (msg: Effect | SoundEffect) => {
+      console.log("Message received:", msg);
+
+      effectsEvent(msg);
     });
 
     return () => {
@@ -123,15 +137,26 @@ export default function RoomPage() {
     <div
       className={`w-screen h-screen flex flex-col items-center justify-center transition-all duration-500 bg-zinc-950  ${effect === Effect.FLASH && "animate-flash"}`}
     >
-      <h1 className="text-4xl mb-8">
-        Room: {roomId}{" "}
-        <button
-          className="cursor-pointer transition hover:text-zinc-200"
-          onClick={handleCopyRoomCode}
-        >
-          {copied ? <Check /> : <Copy />}
+      <div className="flex flex-col items-start gap-2">
+        <button className="text-xl cursor-pointer transition hover:text-zinc-200">
+          <ArrowLeft className="inline" onClick={() => router.back()} />
         </button>
-      </h1>
+        <h1 className="text-4xl">
+          Room: {roomId}
+          <button
+            className="cursor-pointer transition hover:text-zinc-200 ml-4"
+            onClick={handleCopyRoomCode}
+          >
+            {copied ? <Check /> : <Copy />}
+          </button>
+        </h1>
+        <div className="text-g mb-8 gap-1.5 flex items-center">
+          <div className="bg-green-500 rounded-full w-3 h-3">
+            <div className="bg-green-500 rounded-full w-3 h-3 animate-ping"></div>
+          </div>
+          <p>{roomCount} connected users</p>
+        </div>
+      </div>
       <div className={`flex gap-4`}>
         <button
           onClick={() => handleEffect(Effect.FLASH)}
