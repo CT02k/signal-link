@@ -33,6 +33,10 @@ app.prepare().then(() => {
       io.to(room).emit("message", msg);
     });
 
+    socket.on("customAudio", (audio) => {
+      io.to(room).emit("customAudio", audio);
+    })
+
     socket.on("disconnect", () => {
       console.log("User disconnected:", socket.id);
       io.to(room).emit("roomCount", totalCount(room));

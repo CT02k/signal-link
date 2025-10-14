@@ -5,6 +5,9 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 import io, { Socket } from "socket.io-client";
 import { ArrowLeft, Check, Copy } from "lucide-react";
 import { Effect, SoundEffect } from "./types/effect";
+import { CustomEffectButton, EffectButton } from "./components/effectButton";
+import { CustomSoundPopup } from "./components/popup";
+import { CustomAudio } from "./types/custom";
 
 let socket: Socket;
 
@@ -16,10 +19,14 @@ export default function RoomPage() {
 
   const [effect, setEffect] = useState<Effect>(Effect.NONE);
   const [soundEffect, setSoundEffect] = useState<SoundEffect>(SoundEffect.NONE);
+  const [customSound, setCustomSound] = useState<Base64URLString>();
 
   const [isTabActive, setIsTabActive] = useState(true);
 
   const [copied, setCopied] = useState(false);
+
+  const [popup, setPopup] = useState(false);
+  const [customSounds, setCustomSounds] = useState<CustomAudio[]>([]);
 
   const pathname = usePathname();
 
@@ -89,6 +96,10 @@ export default function RoomPage() {
       effectsEvent(msg);
     });
 
+    socket.on("customAudio", (audio: Base64URLString) => {
+      playCustomSound(audio);
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -99,9 +110,18 @@ export default function RoomPage() {
     effect.play();
   }
 
+  function playCustomSound(sound: Base64URLString) {
+    const custom = new Audio(sound);
+    custom.play();
+  }
+
   useEffect(() => {
     if (soundEffect !== SoundEffect.NONE) playSoundEffect(soundEffect);
   }, [soundEffect]);
+
+  useEffect(() => {
+    if (customSound) playCustomSound(customSound);
+  }, [customSound]);
 
   function playNotification() {
     const sound = new Audio(
@@ -122,6 +142,12 @@ export default function RoomPage() {
     setTimeout(() => setEffect(Effect.NONE), 1000);
   }
 
+  function handleCustomSound(audio: Base64URLString) {
+    socket.emit("customAudio", audio);
+    setCustomSound(audio);
+    setTimeout(() => setCustomSound(undefined), 2000);
+  }
+
   function handleCopyRoomCode() {
     const cb = navigator.clipboard;
 
@@ -133,10 +159,35 @@ export default function RoomPage() {
     });
   }
 
+  function handleCustomSoundUpload() {
+    setPopup(true);
+  }
+
+  function handleCustomSoundSubmit(data: CustomAudio) {
+    setCustomSounds((prev) => [...prev, data]);
+  }
+
+  useEffect(() => {
+    socket.on("customSound", (base64: string) => {
+      console.log("arribaa hermano", base64);
+      const audio = new Audio(base64);
+      audio.play();
+    });
+
+    return () => {
+      socket.off("customSound");
+    };
+  }, []);
+
   return (
     <div
       className={`w-screen h-screen flex flex-col items-center justify-center transition-all duration-500 bg-zinc-950  ${effect === Effect.FLASH && "animate-flash"}`}
     >
+      <CustomSoundPopup
+        open={popup}
+        closePopup={() => setPopup(false)}
+        onSubmit={handleCustomSoundSubmit}
+      />
       <div className="flex flex-col items-start gap-2">
         <button className="text-xl cursor-pointer transition hover:text-zinc-200">
           <ArrowLeft className="inline" onClick={() => router.back()} />
@@ -157,18 +208,39 @@ export default function RoomPage() {
           <p>{roomCount} connected users</p>
         </div>
       </div>
-      <div className={`flex gap-4`}>
-        <button
-          onClick={() => handleEffect(Effect.FLASH)}
-          className="w-20 h-20 hvs bg-zinc-600 text-white rounded-xl hover:bg-zinc-600/90 hover:translate-y-[2px] hover:translate-x-[2px] cursor-pointer transition-all"
+
+      <div
+        className={`flex flex-wrap gap-4 w-1/2 bg-zinc-900 border border-zinc-800 rounded-lg p-4 items-center justify-center`}
+      >
+        <EffectButton
+          effect={Effect.FLASH}
+          onClick={(e) => handleEffect(e as Effect)}
+          color="white"
         >
           Flash
-        </button>
-        <button
-          onClick={() => handleSoundEffect(SoundEffect.PULSE)}
-          className="w-20 h-20 bg-rose-600 text-white rounded-xl hover:bg-rose-600/90 hover:translate-y-[2px] hover:translate-x-[2px] cursor-pointer transition-all"
+        </EffectButton>
+        <EffectButton
+          effect={SoundEffect.PULSE}
+          onClick={(e) => handleSoundEffect(e as SoundEffect)}
+          color="white"
         >
           Pulse
+        </EffectButton>
+        {customSounds.map((data) => (
+          <CustomEffectButton
+            key={data.name}
+            effect={data.audio}
+            onClick={(audio) => handleCustomSound(audio)}
+            color={data.color}
+          >
+            {data.name}
+          </CustomEffectButton>
+        ))}
+        <button
+          className="w-full py-2 bg-zinc-800 rounded-lg transition cursor-pointer hover:bg-zinc-800/90"
+          onClick={handleCustomSoundUpload}
+        >
+          Upload custom audio
         </button>
       </div>
 

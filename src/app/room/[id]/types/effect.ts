@@ -8,4 +8,4 @@ export enum SoundEffect {
   PULSE = "pulse",
 }
 
-export type Enums = Effect | SoundEffect;
+export type AnyEffect = Effect | SoundEffect;
