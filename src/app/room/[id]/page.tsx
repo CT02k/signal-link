@@ -3,19 +3,23 @@
 import { useEffect, useState } from "react";
 import { useParams, usePathname } from "next/navigation";
 import io, { Socket } from "socket.io-client";
-import { useRouter } from "next/router";
+import { Check, Copy } from "lucide-react";
 
 let socket: Socket;
 
 export default function RoomPage() {
   const params = useParams();
-  const roomId = params.id;
+  const {id: roomId } = params;
+
   const [effect, setEffect] = useState<"none" | "flash" | "pulse">("none");
+
   const [isTabActive, setIsTabActive] = useState(true);
+
+  const [copied, setCopied] = useState(false);
+
   const pathname = usePathname();
 
   useEffect(() => {
-    // Atualiza sempre que a rota muda
     setIsTabActive(true);
   }, [pathname]);
 
@@ -35,7 +39,6 @@ export default function RoomPage() {
     };
   }, []);
 
-  // Detecta mudança de aba
   useEffect(() => {
     const onVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
@@ -47,7 +50,6 @@ export default function RoomPage() {
     document.addEventListener("visibilitychange", onVisibilityChange, false);
   });
 
-  // Conecta ao socket apenas 1x
   useEffect(() => {
     socket = io("http://localhost:3000", { query: { room: roomId } });
 
@@ -90,11 +92,22 @@ export default function RoomPage() {
     setTimeout(() => setEffect("none"), 1000);
   };
 
+  function handleCopyRoomCode(){
+    const cb = navigator.clipboard;
+
+    if (!roomId) return;
+
+    cb.writeText(roomId as string).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1000)
+    })
+  }
+
   return (
     <div
-      className={`w-screen h-screen flex flex-col items-center justify-center transition-all duration-500 bg-black  ${effect === "flash" && "animate-flash"}`}
+      className={`w-screen h-screen flex flex-col items-center justify-center transition-all duration-500 bg-zinc-950  ${effect === "flash" && "animate-flash"}`}
     >
-      <h1 className="text-4xl mb-8">Sala: {roomId}</h1>
+      <h1 className="text-4xl mb-8">Room: {roomId} <button className="cursor-pointer transition hover:text-zinc-200" onClick={handleCopyRoomCode}>{ copied ? <Check/> : <Copy/> }</button></h1>
       <div className={`flex gap-4 ${effect === "pulse" && "animate-pulse"}`}>
         <button
           onClick={handleFlash}
@@ -104,7 +117,7 @@ export default function RoomPage() {
         </button>
         <button
           onClick={handlePulse}
-          className="w-20 h-20 hvs bg-rose-600 text-white rounded-xl hover:bg-rose-600/90 hover:translate-y-[2px] hover:translate-x-[2px] cursor-pointer transition-all"
+          className="w-20 h-20 bg-rose-600 text-white rounded-xl hover:bg-rose-600/90 hover:translate-y-[2px] hover:translate-x-[2px] cursor-pointer transition-all"
         >
           Pulse
         </button>
@@ -114,10 +127,10 @@ export default function RoomPage() {
         @keyframes flash {
           0%,
           100% {
-            background-color: white;
+            filter: invert(100%);
           }
           50% {
-            background-color: black;
+            filter: invert(0%);
           }
         }
         .animate-flash {
