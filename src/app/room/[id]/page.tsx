@@ -10,7 +10,7 @@ let socket: Socket;
 
 export default function RoomPage() {
   const params = useParams();
-  const {id: roomId } = params;
+  const { id: roomId } = params;
 
   const [effect, setEffect] = useState<Effect>(Effect.NONE);
 
@@ -78,32 +78,42 @@ export default function RoomPage() {
     const sound = new Audio(
       isTabActive ? "/sounds/not.mp3" : "/sounds/not-inactive.mp3",
     );
-    sound.play().catch((err) => console.error("Erro ao tocar som:", err));
+    sound.play();
   };
 
-  function handleEffect(effect: Effect){
+  function handleEffect(effect: Effect) {
     socket.emit("message", effect);
     setEffect(effect);
     setTimeout(() => setEffect(Effect.NONE), 1000);
   }
 
-  function handleCopyRoomCode(){
+  function handleCopyRoomCode() {
     const cb = navigator.clipboard;
 
     if (!roomId) return;
 
     cb.writeText(roomId as string).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 1000)
-    })
+      setTimeout(() => setCopied(false), 1000);
+    });
   }
 
   return (
     <div
       className={`w-screen h-screen flex flex-col items-center justify-center transition-all duration-500 bg-zinc-950  ${effect === Effect.FLASH && "animate-flash"}`}
     >
-      <h1 className="text-4xl mb-8">Room: {roomId} <button className="cursor-pointer transition hover:text-zinc-200" onClick={handleCopyRoomCode}>{ copied ? <Check/> : <Copy/> }</button></h1>
-      <div className={`flex gap-4 ${effect === Effect.PULSE && "animate-pulse"}`}>
+      <h1 className="text-4xl mb-8">
+        Room: {roomId}{" "}
+        <button
+          className="cursor-pointer transition hover:text-zinc-200"
+          onClick={handleCopyRoomCode}
+        >
+          {copied ? <Check /> : <Copy />}
+        </button>
+      </h1>
+      <div
+        className={`flex gap-4 ${effect === Effect.PULSE && "animate-pulse"}`}
+      >
         <button
           onClick={() => handleEffect(Effect.FLASH)}
           className="w-20 h-20 hvs bg-zinc-600 text-white rounded-xl hover:bg-zinc-600/90 hover:translate-y-[2px] hover:translate-x-[2px] cursor-pointer transition-all"
