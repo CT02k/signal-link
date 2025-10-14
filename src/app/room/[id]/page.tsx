@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, usePathname } from "next/navigation";
 import io, { Socket } from "socket.io-client";
 import { Check, Copy } from "lucide-react";
-import { Effect } from "./types/effect";
+import { Effect, SoundEffect } from "./types/effect";
 
 let socket: Socket;
 
@@ -13,6 +13,7 @@ export default function RoomPage() {
   const { id: roomId } = params;
 
   const [effect, setEffect] = useState<Effect>(Effect.NONE);
+  const [soundEffect, setSoundEffect] = useState<SoundEffect>(SoundEffect.NONE);
 
   const [isTabActive, setIsTabActive] = useState(true);
 
@@ -58,15 +59,20 @@ export default function RoomPage() {
       console.log("Connected to room:", roomId, "Socket ID:", socket.id);
     });
 
-    socket.on("message", (msg) => {
+    socket.on("message", (msg: Effect | SoundEffect) => {
       console.log("Message received:", msg);
 
-      if (msg === Effect.FLASH) setEffect(Effect.FLASH);
-      else if (msg === Effect.PULSE) setEffect(Effect.PULSE);
+      if (Object.values(Effect).includes(msg as Effect)) {
+        setEffect(msg as Effect);
+        setTimeout(() => setEffect(Effect.NONE), 1000);
+      }
 
-      setTimeout(() => setEffect(Effect.NONE), 1000);
+      if (Object.values(SoundEffect).includes(msg as SoundEffect)) {
+        setSoundEffect(msg as SoundEffect);
+        setTimeout(() => setSoundEffect(SoundEffect.NONE), 1000);
+      }
 
-      setTimeout(() => playNotification());
+      playNotification();
     });
 
     return () => {
@@ -74,16 +80,31 @@ export default function RoomPage() {
     };
   });
 
-  const playNotification = () => {
+  function playSoundEffect(soundEffect: SoundEffect) {
+    const effect = new Audio(`/sounds/effects/${soundEffect}.mp3`);
+    effect.play();
+  }
+
+  useEffect(() => {
+    if (soundEffect !== SoundEffect.NONE) playSoundEffect(soundEffect);
+  }, [soundEffect]);
+
+  function playNotification() {
     const sound = new Audio(
       isTabActive ? "/sounds/not.mp3" : "/sounds/not-inactive.mp3",
     );
     sound.play();
-  };
+  }
 
   function handleEffect(effect: Effect) {
     socket.emit("message", effect);
     setEffect(effect);
+    setTimeout(() => setEffect(Effect.NONE), 2000);
+  }
+
+  function handleSoundEffect(effect: SoundEffect) {
+    socket.emit("message", effect);
+    setSoundEffect(effect);
     setTimeout(() => setEffect(Effect.NONE), 1000);
   }
 
@@ -111,9 +132,7 @@ export default function RoomPage() {
           {copied ? <Check /> : <Copy />}
         </button>
       </h1>
-      <div
-        className={`flex gap-4 ${effect === Effect.PULSE && "animate-pulse"}`}
-      >
+      <div className={`flex gap-4`}>
         <button
           onClick={() => handleEffect(Effect.FLASH)}
           className="w-20 h-20 hvs bg-zinc-600 text-white rounded-xl hover:bg-zinc-600/90 hover:translate-y-[2px] hover:translate-x-[2px] cursor-pointer transition-all"
@@ -121,7 +140,7 @@ export default function RoomPage() {
           Flash
         </button>
         <button
-          onClick={() => handleEffect(Effect.PULSE)}
+          onClick={() => handleSoundEffect(SoundEffect.PULSE)}
           className="w-20 h-20 bg-rose-600 text-white rounded-xl hover:bg-rose-600/90 hover:translate-y-[2px] hover:translate-x-[2px] cursor-pointer transition-all"
         >
           Pulse
