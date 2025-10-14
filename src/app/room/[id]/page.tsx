@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, usePathname } from "next/navigation";
 import io, { Socket } from "socket.io-client";
 import { Check, Copy } from "lucide-react";
+import { Effect } from "./types/effect";
 
 let socket: Socket;
 
@@ -11,7 +12,7 @@ export default function RoomPage() {
   const params = useParams();
   const {id: roomId } = params;
 
-  const [effect, setEffect] = useState<"none" | "flash" | "pulse">("none");
+  const [effect, setEffect] = useState<Effect>(Effect.NONE);
 
   const [isTabActive, setIsTabActive] = useState(true);
 
@@ -60,10 +61,10 @@ export default function RoomPage() {
     socket.on("message", (msg) => {
       console.log("Message received:", msg);
 
-      if (msg === "flash") setEffect("flash");
-      else if (msg === "pulse") setEffect("pulse");
+      if (msg === Effect.FLASH) setEffect(Effect.FLASH);
+      else if (msg === Effect.PULSE) setEffect(Effect.PULSE);
 
-      setTimeout(() => setEffect("none"), 1000);
+      setTimeout(() => setEffect(Effect.NONE), 1000);
 
       setTimeout(() => playNotification());
     });
@@ -80,17 +81,11 @@ export default function RoomPage() {
     sound.play().catch((err) => console.error("Erro ao tocar som:", err));
   };
 
-  const handleFlash = () => {
-    socket.emit("message", "flash");
-    setEffect("flash");
-    setTimeout(() => setEffect("none"), 1000);
-  };
-
-  const handlePulse = () => {
-    socket.emit("message", "pulse");
-    setEffect("pulse");
-    setTimeout(() => setEffect("none"), 1000);
-  };
+  function handleEffect(effect: Effect){
+    socket.emit("message", effect);
+    setEffect(effect);
+    setTimeout(() => setEffect(Effect.NONE), 1000);
+  }
 
   function handleCopyRoomCode(){
     const cb = navigator.clipboard;
@@ -105,18 +100,18 @@ export default function RoomPage() {
 
   return (
     <div
-      className={`w-screen h-screen flex flex-col items-center justify-center transition-all duration-500 bg-zinc-950  ${effect === "flash" && "animate-flash"}`}
+      className={`w-screen h-screen flex flex-col items-center justify-center transition-all duration-500 bg-zinc-950  ${effect === Effect.FLASH && "animate-flash"}`}
     >
       <h1 className="text-4xl mb-8">Room: {roomId} <button className="cursor-pointer transition hover:text-zinc-200" onClick={handleCopyRoomCode}>{ copied ? <Check/> : <Copy/> }</button></h1>
-      <div className={`flex gap-4 ${effect === "pulse" && "animate-pulse"}`}>
+      <div className={`flex gap-4 ${effect === Effect.PULSE && "animate-pulse"}`}>
         <button
-          onClick={handleFlash}
+          onClick={() => handleEffect(Effect.FLASH)}
           className="w-20 h-20 hvs bg-zinc-600 text-white rounded-xl hover:bg-zinc-600/90 hover:translate-y-[2px] hover:translate-x-[2px] cursor-pointer transition-all"
         >
           Flash
         </button>
         <button
-          onClick={handlePulse}
+          onClick={() => handleEffect(Effect.PULSE)}
           className="w-20 h-20 bg-rose-600 text-white rounded-xl hover:bg-rose-600/90 hover:translate-y-[2px] hover:translate-x-[2px] cursor-pointer transition-all"
         >
           Pulse
