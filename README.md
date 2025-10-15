@@ -2,6 +2,8 @@
 
 A simple web application for real-time multiplayer room-based effects and soundboard.
 
+https://github.com/user-attachments/assets/ebf312a4-6aa1-4a02-91e1-330a51bc69a1
+
 ## Features
 
 - Join and create rooms and send audio signals
