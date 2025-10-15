@@ -41,6 +41,10 @@ export default function Home() {
         </h1>
         <h1 className="text-8xl font-black">Signal Link</h1>
       </div>
+      <p className="text-xl mt-6">
+        Real-time multiplayer sound and visual effects powered by WebSockets -
+        no database, fully local.
+      </p>
       <div className="flex gap-4">
         <button
           className="px-10 py-2 bg-white hover:bg-zinc-200 cursor-pointer text-black rounded-full text-xl transition mt-10"

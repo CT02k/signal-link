@@ -1,13 +1,18 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
 import io, { Socket } from "socket.io-client";
+
 import { ArrowLeft, Check, Copy } from "lucide-react";
-import { Effect, SoundEffect } from "./types/effect";
+
 import { CustomEffectButton, EffectButton } from "./components/effectButton";
 import { CustomSoundPopup } from "./components/popup";
+
 import { CustomAudio } from "./types/custom";
+import { Effect, SoundEffect } from "./types/effect";
+
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
+
 import { useCopyToClipboard } from "./hooks/copyToClipboard";
 import { useCustomAudios } from "./hooks/customAudios";
 import { useTabVisibility } from "./hooks/tabVisibility";
@@ -40,8 +45,13 @@ export default function RoomPage() {
     audio.play();
   }, []);
 
-  const playCustomSound = useCallback((sound: Base64URLString) => {
-    const audio = new Audio(sound);
+  const customAudioRef = useRef(new Audio());
+
+  const playCustomSound = useCallback((sound: string) => {
+    const audio = customAudioRef.current;
+    audio.pause();
+    audio.currentTime = 0;
+    audio.src = sound;
     audio.play();
   }, []);
 

@@ -15,10 +15,12 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Signal Link",
-  description: "Signals? maybe, idk",
+  description:
+    "Real-time multiplayer sound and visual effects powered by WebSockets - no database, fully local.",
   openGraph: {
     title: "Signal Link",
-    description: "Signals? maybe, idk",
+    description:
+      "Real-time multiplayer sound and visual effects powered by WebSockets - no database, fully local.",
   },
 };
 
