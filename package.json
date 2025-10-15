@@ -7,6 +7,7 @@
     "dev": "node server.js",
     "build": "next build --turbopack",
     "start": "cross-env NODE_ENV=production node server.js",
+    "discloud": "npm run build && npm run start",
     "format": "prettier --write .",
     "lint": "eslint"
   },
