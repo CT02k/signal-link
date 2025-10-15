@@ -1,67 +1,69 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
 import io, { Socket } from "socket.io-client";
 import { ArrowLeft, Check, Copy } from "lucide-react";
 import { Effect, SoundEffect } from "./types/effect";
 import { CustomEffectButton, EffectButton } from "./components/effectButton";
 import { CustomSoundPopup } from "./components/popup";
 import { CustomAudio } from "./types/custom";
+import { useCopyToClipboard } from "./hooks/copyToClipboard";
+import { useCustomAudios } from "./hooks/customAudios";
+import { useTabVisibility } from "./hooks/tabVisibility";
 
 let socket: Socket;
 
 export default function RoomPage() {
   const params = useParams();
-  const { id: roomId } = params;
-
-  const [roomCount, setRoomCount] = useState(0);
-
-  const [effect, setEffect] = useState<Effect>(Effect.NONE);
-  const [soundEffect, setSoundEffect] = useState<SoundEffect>(SoundEffect.NONE);
-  const [customSound, setCustomSound] = useState<Base64URLString>();
-
-  const [isTabActive, setIsTabActive] = useState(true);
-
-  const [copied, setCopied] = useState(false);
-
-  const [popup, setPopup] = useState(false);
-  const [customSounds, setCustomSounds] = useState<CustomAudio[]>([]);
-
-  const pathname = usePathname();
+  const roomId = params.id as string;
 
   const router = useRouter();
 
-  useEffect(() => {
-    setIsTabActive(true);
-  }, [pathname]);
+  const [roomCount, setRoomCount] = useState(0);
+  const [currentEffect, setCurrentEffect] = useState<Effect>(Effect.NONE);
+  const [currentSoundEffect, setCurrentSoundEffect] = useState<SoundEffect>(
+    SoundEffect.NONE,
+  );
+  const [currentCustomSound, setCurrentCustomSound] = useState<
+    Base64URLString | undefined
+  >(undefined);
 
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        setIsTabActive(true);
-      } else {
-        setIsTabActive(false);
-      }
-    };
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [copiedRoomId, copyRoomId] = useCopyToClipboard(roomId);
+  const isTabActive = useTabVisibility();
+  const { customSounds, setCustomSounds, loadingCustomSounds } =
+    useCustomAudios();
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
+  const playSoundEffect = useCallback((sound: SoundEffect) => {
+    const audio = new Audio(`/sounds/effects/${sound}.mp3`);
+    audio.play();
   }, []);
 
+  const playCustomSound = useCallback((sound: Base64URLString) => {
+    const audio = new Audio(sound);
+    audio.play();
+  }, []);
+
+  const playNotification = useCallback(() => {
+    const soundPath = isTabActive
+      ? "/sounds/not.mp3"
+      : "/sounds/not-inactive.mp3";
+    const audio = new Audio(soundPath);
+    audio.play();
+  }, [isTabActive]);
+
   useEffect(() => {
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        setIsTabActive(false);
-      } else {
-        setIsTabActive(true);
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibilityChange, false);
-  });
+    if (currentSoundEffect !== SoundEffect.NONE) {
+      playSoundEffect(currentSoundEffect);
+    }
+  }, [currentSoundEffect, playSoundEffect]);
+
+  useEffect(() => {
+    if (currentCustomSound) {
+      playCustomSound(currentCustomSound);
+    }
+  }, [currentCustomSound, playCustomSound]);
 
   useEffect(() => {
     socket = io("http://localhost:3000", { query: { room: roomId } });
@@ -70,30 +72,26 @@ export default function RoomPage() {
       console.log("Connected to room:", roomId, "Socket ID:", socket.id);
     });
 
-    const effectsEvent = (message: string) => {
-      const msg = message as Effect | SoundEffect;
-
-      if (Object.values(Effect).includes(msg as Effect)) {
-        setEffect(msg as Effect);
-        setTimeout(() => setEffect(Effect.NONE), 1000);
-      }
-
-      if (Object.values(SoundEffect).includes(msg as SoundEffect)) {
-        setSoundEffect(msg as SoundEffect);
-        setTimeout(() => setSoundEffect(SoundEffect.NONE), 1000);
-      }
-
-      playNotification();
-    };
-
     socket.on("roomCount", (count: number) => {
       setRoomCount(count);
     });
 
     socket.on("message", (msg: Effect | SoundEffect) => {
       console.log("Message received:", msg);
+      const messageType = msg as Effect | SoundEffect;
 
-      effectsEvent(msg);
+      if (Object.values(Effect).includes(messageType as Effect)) {
+        setCurrentEffect(messageType as Effect);
+        setTimeout(() => setCurrentEffect(Effect.NONE), 1000);
+      }
+
+      if (Object.values(SoundEffect).includes(messageType as SoundEffect)) {
+        setCurrentSoundEffect(messageType as SoundEffect);
+        setTimeout(() => setCurrentSoundEffect(SoundEffect.NONE), 1000);
+      }
+
+      // playNotification();
+      // TODO: Fix notifications duplicated
     });
 
     socket.on("customAudio", (audio: Base64URLString) => {
@@ -102,90 +100,49 @@ export default function RoomPage() {
 
     return () => {
       socket.disconnect();
+      socket.off("connect");
+      socket.off("roomCount");
+      socket.off("message");
+      socket.off("customAudio");
     };
-  });
+  }, [roomId, playNotification, playCustomSound]);
 
-  function playSoundEffect(soundEffect: SoundEffect) {
-    const effect = new Audio(`/sounds/effects/${soundEffect}.mp3`);
-    effect.play();
-  }
-
-  function playCustomSound(sound: Base64URLString) {
-    const custom = new Audio(sound);
-    custom.play();
-  }
-
-  useEffect(() => {
-    if (soundEffect !== SoundEffect.NONE) playSoundEffect(soundEffect);
-  }, [soundEffect]);
-
-  useEffect(() => {
-    if (customSound) playCustomSound(customSound);
-  }, [customSound]);
-
-  function playNotification() {
-    const sound = new Audio(
-      isTabActive ? "/sounds/not.mp3" : "/sounds/not-inactive.mp3",
-    );
-    sound.play();
-  }
-
-  function handleEffect(effect: Effect) {
+  const handleEffect = useCallback((effect: Effect) => {
     socket.emit("message", effect);
-    setEffect(effect);
-    setTimeout(() => setEffect(Effect.NONE), 2000);
-  }
+    setCurrentEffect(effect);
+    setTimeout(() => setCurrentEffect(Effect.NONE), 2000);
+  }, []);
 
-  function handleSoundEffect(effect: SoundEffect) {
+  const handleSoundEffect = useCallback((effect: SoundEffect) => {
     socket.emit("message", effect);
-    setSoundEffect(effect);
-    setTimeout(() => setEffect(Effect.NONE), 1000);
-  }
+    setCurrentSoundEffect(effect);
+    setTimeout(() => setCurrentSoundEffect(SoundEffect.NONE), 1000);
+  }, []);
 
-  function handleCustomSound(audio: Base64URLString) {
+  const handleCustomSound = useCallback((audio: Base64URLString) => {
     socket.emit("customAudio", audio);
-    setCustomSound(audio);
-    setTimeout(() => setCustomSound(undefined), 2000);
-  }
+    setCurrentCustomSound(audio);
+    setTimeout(() => setCurrentCustomSound(undefined), 2000);
+  }, []);
 
-  function handleCopyRoomCode() {
-    const cb = navigator.clipboard;
+  const handleCustomSoundSubmit = useCallback(
+    (data: CustomAudio) => {
+      setCustomSounds((prev) => [...prev, data]);
+    },
+    [setCustomSounds],
+  );
 
-    if (!roomId) return;
-
-    cb.writeText(roomId as string).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1000);
-    });
-  }
-
-  function handleCustomSoundUpload() {
-    setPopup(true);
-  }
-
-  function handleCustomSoundSubmit(data: CustomAudio) {
-    setCustomSounds((prev) => [...prev, data]);
-  }
-
-  useEffect(() => {
-    socket.on("customSound", (base64: string) => {
-      console.log("arribaa hermano", base64);
-      const audio = new Audio(base64);
-      audio.play();
-    });
-
-    return () => {
-      socket.off("customSound");
-    };
+  const handleOpenCustomSoundPopup = useCallback(() => {
+    setIsPopupOpen(true);
   }, []);
 
   return (
     <div
-      className={`w-screen h-screen flex flex-col items-center justify-center transition-all duration-500 bg-zinc-950  ${effect === Effect.FLASH && "animate-flash"}`}
+      className={`w-screen h-screen flex flex-col items-center justify-center transition-all duration-500 bg-zinc-950  ${currentEffect === Effect.FLASH ? "animate-flash" : ""}`}
     >
       <CustomSoundPopup
-        open={popup}
-        closePopup={() => setPopup(false)}
+        open={isPopupOpen}
+        closePopup={() => setIsPopupOpen(false)}
         onSubmit={handleCustomSoundSubmit}
       />
       <div className="flex flex-col items-start gap-2">
@@ -196,9 +153,9 @@ export default function RoomPage() {
           Room: {roomId}
           <button
             className="cursor-pointer transition hover:text-zinc-200 ml-4"
-            onClick={handleCopyRoomCode}
+            onClick={copyRoomId}
           >
-            {copied ? <Check /> : <Copy />}
+            {copiedRoomId ? <Check /> : <Copy />}
           </button>
         </h1>
         <div className="text-g mb-8 gap-1.5 flex items-center">
@@ -210,7 +167,7 @@ export default function RoomPage() {
       </div>
 
       <div
-        className={`flex flex-wrap gap-4 w-1/2 bg-zinc-900 border border-zinc-800 rounded-lg p-4 items-center justify-center`}
+        className={`flex flex-wrap gap-4 w-1/2 bg-zinc-900 border border-zinc-800 rounded-lg p-4 items-center justify-center transition-all`}
       >
         <EffectButton
           effect={Effect.FLASH}
@@ -226,6 +183,13 @@ export default function RoomPage() {
         >
           Pulse
         </EffectButton>
+        {loadingCustomSounds &&
+          [1, 2, 3, 4].map((n) => (
+            <div
+              key={n}
+              className="rounded-xl w-20 h-20 bg-zinc-800 animate-pulse"
+            ></div>
+          ))}
         {customSounds.map((data) => (
           <CustomEffectButton
             key={data.name}
@@ -238,26 +202,11 @@ export default function RoomPage() {
         ))}
         <button
           className="w-full py-2 bg-zinc-800 rounded-lg transition cursor-pointer hover:bg-zinc-800/90"
-          onClick={handleCustomSoundUpload}
+          onClick={handleOpenCustomSoundPopup}
         >
           Upload custom audio
         </button>
       </div>
-
-      <style jsx>{`
-        @keyframes flash {
-          0%,
-          100% {
-            filter: invert(100%);
-          }
-          50% {
-            filter: invert(0%);
-          }
-        }
-        .animate-flash {
-          animation: flash 0.5s infinite;
-        }
-      `}</style>
     </div>
   );
 }

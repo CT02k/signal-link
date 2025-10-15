@@ -3,3 +3,16 @@
 body {
   @apply bg-zinc-950 text-white;
 }
+
+@keyframes flash {
+  0%,
+  100% {
+    filter: invert(100%);
+  }
+  50% {
+    filter: invert(0%);
+  }
+}
+.animate-flash {
+  animation: flash 0.5s infinite;
+}
