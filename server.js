@@ -43,5 +43,5 @@ app.prepare().then(() => {
     });
   });
 
-  server.listen(3000, () => console.log(`🚀 http://localhost:3000 ${dev ? "[DEV]" : "[PRD]"}`));
+  server.listen(8080, () => console.log(`🚀 http://localhost:8080 ${dev ? "[DEV]" : "[PRD]"}`));
 });
