@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useTabVisibility } from "../hooks/tabVisibility";
+import { useTabVisibility } from "./tabVisibility";
 
 export const useNotification = () => {
   const isTabActive = useTabVisibility();

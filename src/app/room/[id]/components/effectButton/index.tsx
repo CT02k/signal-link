@@ -34,12 +34,12 @@ export function CustomEffectButton({
   onClick: (effect: Base64URLString) => void;
 }) {
   return (
-    <button
+    <div
       onClick={() => onClick(effect)}
-      className={`w-20 h-20 px-1 text-white rounded-xl hover:translate-y-[2px] hover:opacity-90 hover:translate-x-[2px] cursor-pointer transition-all`}
+      className={`w-20 h-20 px-1 text-white flex items-center justify-center rounded-xl hover:translate-y-[2px] hover:opacity-90 hover:translate-x-[2px] cursor-pointer transition-all relative`}
       style={{ background: color }}
     >
       {children}
-    </button>
+    </div>
   );
 }

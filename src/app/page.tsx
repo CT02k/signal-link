@@ -41,7 +41,7 @@ export default function Home() {
         </h1>
         <h1 className="text-8xl font-black">Signal Link</h1>
       </div>
-      <p className="text-xl mt-6">
+      <p className="text-xl mt-6 px-4 text-center">
         Real-time multiplayer sound and visual effects powered by WebSockets -
         no database, fully local.
       </p>

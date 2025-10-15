@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Check, Copy } from "lucide-react";
+import { ArrowLeft, Check, Copy, Trash } from "lucide-react";
 
 import { CustomEffectButton, EffectButton } from "./components/effectButton";
 import { CustomSoundPopup } from "./components/popup";
@@ -87,6 +87,10 @@ export default function RoomPage() {
     setIsPopupOpen(true);
   }, []);
 
+  const handleDeleteCustomSound = (b64: Base64URLString) => {
+    setCustomSounds((prev) => prev.filter((audio) => audio.audio !== b64));
+  };
+
   return (
     <div
       className={`w-screen h-screen flex flex-col items-center justify-center transition-all duration-500 bg-zinc-950  ${currentEffect === Effect.FLASH ? "animate-flash" : ""}`}
@@ -149,6 +153,15 @@ export default function RoomPage() {
             color={data.color}
           >
             {data.name}
+            <button
+              className=" text-black hover:text-zinc-900 transition inver rounded cursor-pointer absolute top-1 right-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteCustomSound(data.audio);
+              }}
+            >
+              <Trash size={"1.25rem"} />
+            </button>
           </CustomEffectButton>
         ))}
         <button
