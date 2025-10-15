@@ -1,7 +1,5 @@
 "use client";
 
-import io, { Socket } from "socket.io-client";
-
 import { ArrowLeft, Check, Copy } from "lucide-react";
 
 import { CustomEffectButton, EffectButton } from "./components/effectButton";
@@ -10,14 +8,15 @@ import { CustomSoundPopup } from "./components/popup";
 import { CustomAudio } from "./types/custom";
 import { Effect, SoundEffect } from "./types/effect";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { useCopyToClipboard } from "./hooks/copyToClipboard";
 import { useCustomAudios } from "./hooks/customAudios";
-import { useTabVisibility } from "./hooks/tabVisibility";
-
-let socket: Socket;
+// import { useNotification } from "./hooks/playNotification";
+import { useCustomSound } from "./hooks/playCustomSound";
+import { useSoundEffect } from "./hooks/playSoundEffect";
+import { useRoomSocket } from "./hooks/useRoomSocket";
 
 export default function RoomPage() {
   const params = useParams();
@@ -25,7 +24,6 @@ export default function RoomPage() {
 
   const router = useRouter();
 
-  const [roomCount, setRoomCount] = useState(0);
   const [currentEffect, setCurrentEffect] = useState<Effect>(Effect.NONE);
   const [currentSoundEffect, setCurrentSoundEffect] = useState<SoundEffect>(
     SoundEffect.NONE,
@@ -34,34 +32,37 @@ export default function RoomPage() {
     Base64URLString | undefined
   >(undefined);
 
+  // const playNotification = useNotification();
+  const playCustomSound = useCustomSound();
+  const playSoundEffect = useSoundEffect();
+
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [copiedRoomId, copyRoomId] = useCopyToClipboard(roomId);
-  const isTabActive = useTabVisibility();
+
+  const socketOptions = useMemo(
+    () => ({
+      onEffect: (effect: Effect) => {
+        setCurrentEffect(effect);
+        setTimeout(() => setCurrentEffect(Effect.NONE), 1000);
+      },
+      onSoundEffect: (sound: SoundEffect) => {
+        setCurrentSoundEffect(sound);
+        setTimeout(() => setCurrentSoundEffect(SoundEffect.NONE), 1000);
+      },
+      onCustomSound: (audio: Base64URLString) => {
+        playCustomSound(audio);
+        setCurrentCustomSound(audio);
+        setTimeout(() => setCurrentCustomSound(undefined), 2000);
+      },
+    }),
+    [playCustomSound],
+  );
+
   const { customSounds, setCustomSounds, loadingCustomSounds } =
     useCustomAudios();
 
-  const playSoundEffect = useCallback((sound: SoundEffect) => {
-    const audio = new Audio(`/sounds/effects/${sound}.mp3`);
-    audio.play();
-  }, []);
-
-  const customAudioRef = useRef(new Audio());
-
-  const playCustomSound = useCallback((sound: string) => {
-    const audio = customAudioRef.current;
-    audio.pause();
-    audio.currentTime = 0;
-    audio.src = sound;
-    audio.play();
-  }, []);
-
-  const playNotification = useCallback(() => {
-    const soundPath = isTabActive
-      ? "/sounds/not.mp3"
-      : "/sounds/not-inactive.mp3";
-    const audio = new Audio(soundPath);
-    audio.play();
-  }, [isTabActive]);
+  const { roomCount, sendEffect, sendSoundEffect, sendCustomSound } =
+    useRoomSocket(roomId, socketOptions);
 
   useEffect(() => {
     if (currentSoundEffect !== SoundEffect.NONE) {
@@ -74,66 +75,6 @@ export default function RoomPage() {
       playCustomSound(currentCustomSound);
     }
   }, [currentCustomSound, playCustomSound]);
-
-  useEffect(() => {
-    socket = io("http://localhost:3000", { query: { room: roomId } });
-
-    socket.on("connect", () => {
-      console.log("Connected to room:", roomId, "Socket ID:", socket.id);
-    });
-
-    socket.on("roomCount", (count: number) => {
-      setRoomCount(count);
-    });
-
-    socket.on("message", (msg: Effect | SoundEffect) => {
-      console.log("Message received:", msg);
-      const messageType = msg as Effect | SoundEffect;
-
-      if (Object.values(Effect).includes(messageType as Effect)) {
-        setCurrentEffect(messageType as Effect);
-        setTimeout(() => setCurrentEffect(Effect.NONE), 1000);
-      }
-
-      if (Object.values(SoundEffect).includes(messageType as SoundEffect)) {
-        setCurrentSoundEffect(messageType as SoundEffect);
-        setTimeout(() => setCurrentSoundEffect(SoundEffect.NONE), 1000);
-      }
-
-      // playNotification();
-      // TODO: Fix notifications duplicated
-    });
-
-    socket.on("customAudio", (audio: Base64URLString) => {
-      playCustomSound(audio);
-    });
-
-    return () => {
-      socket.disconnect();
-      socket.off("connect");
-      socket.off("roomCount");
-      socket.off("message");
-      socket.off("customAudio");
-    };
-  }, [roomId, playNotification, playCustomSound]);
-
-  const handleEffect = useCallback((effect: Effect) => {
-    socket.emit("message", effect);
-    setCurrentEffect(effect);
-    setTimeout(() => setCurrentEffect(Effect.NONE), 2000);
-  }, []);
-
-  const handleSoundEffect = useCallback((effect: SoundEffect) => {
-    socket.emit("message", effect);
-    setCurrentSoundEffect(effect);
-    setTimeout(() => setCurrentSoundEffect(SoundEffect.NONE), 1000);
-  }, []);
-
-  const handleCustomSound = useCallback((audio: Base64URLString) => {
-    socket.emit("customAudio", audio);
-    setCurrentCustomSound(audio);
-    setTimeout(() => setCurrentCustomSound(undefined), 2000);
-  }, []);
 
   const handleCustomSoundSubmit = useCallback(
     (data: CustomAudio) => {
@@ -181,14 +122,14 @@ export default function RoomPage() {
       >
         <EffectButton
           effect={Effect.FLASH}
-          onClick={(e) => handleEffect(e as Effect)}
+          onClick={(e) => sendEffect(e as Effect)}
           color="white"
         >
           Flash
         </EffectButton>
         <EffectButton
           effect={SoundEffect.PULSE}
-          onClick={(e) => handleSoundEffect(e as SoundEffect)}
+          onClick={(e) => sendSoundEffect(e as SoundEffect)}
           color="white"
         >
           Pulse
@@ -204,7 +145,7 @@ export default function RoomPage() {
           <CustomEffectButton
             key={data.name}
             effect={data.audio}
-            onClick={(audio) => handleCustomSound(audio)}
+            onClick={(audio) => sendCustomSound(audio)}
             color={data.color}
           >
             {data.name}
